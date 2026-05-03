@@ -11,7 +11,11 @@ COPY stock_frontend/package*.json ./
 RUN npm ci
 
 COPY stock_frontend/ ./
-RUN npm run build
+
+# Do not use "npm run build" because this project's build script runs "tsc -b",
+# but stock_frontend/tsconfig.json is missing.
+# Build Vite directly instead.
+RUN npx vite build
 
 
 ############################
@@ -28,12 +32,10 @@ WORKDIR /app
 
 # Install system packages:
 # - nginx: serve frontend and reverse proxy API
-# - supervisor: run nginx + flask together
 # - ca-certificates/tzdata: network/time stability
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         nginx \
-        supervisor \
         ca-certificates \
         tzdata \
     && rm -rf /var/lib/apt/lists/*
@@ -48,7 +50,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY . /app
 
 # Copy frontend dist from builder.
-# Vite usually builds into stock_frontend/dist.
 COPY --from=frontend-builder /app/stock_frontend/dist /usr/share/nginx/html
 
 # Copy nginx and start script
@@ -56,7 +57,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY docker/start.sh /app/docker/start.sh
 
 RUN chmod +x /app/docker/start.sh \
-    && mkdir -p /app/data /var/log/supervisor /run/nginx
+    && mkdir -p /app/data /run/nginx
 
 EXPOSE 80
 
